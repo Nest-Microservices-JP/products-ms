@@ -1,7 +1,13 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { PrismaClient } from '@prisma/client';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Injectable()
 export class ProductsService extends PrismaClient implements OnModuleInit {
@@ -13,24 +19,62 @@ export class ProductsService extends PrismaClient implements OnModuleInit {
   }
 
   create(createProductDto: CreateProductDto) {
-    return this.product.create({
-      data: createProductDto,
+    return this.product.create({ data: createProductDto });
+  }
+
+  async findAll(paginationDto: PaginationDto) {
+    const { page, limit } = paginationDto;
+    const totalPage = await this.product.count({ where: { available: true } });
+    const lastPage = Math.ceil(totalPage / limit);
+    return {
+      data: await this.product.findMany({
+        where: { available: true },
+        take: limit,
+        skip: (page - 1) * limit,
+      }),
+      meta: {
+        total: totalPage,
+        page: page,
+        lastPage: lastPage,
+      },
+    };
+  }
+
+  async findOne(id: number) {
+    const product = await this.product.findUnique({
+      where: { id: id, available: true },
     });
+
+    if (!product) {
+      throw new NotFoundException(`Product with id ${id} not found`);
+    }
+    return product;
   }
 
-  findAll() {
-    return this.product.findMany();
+  async update(id: number, updateProductDto: UpdateProductDto) {
+    const { id: _, ...data } = updateProductDto;
+
+    const product = await this.product.findUnique({
+      where: { id: id, available: true },
+    });
+
+    if (!product) {
+      throw new NotFoundException(`Product with id ${id} not found`);
+    }
+    return this.product.update({ where: { id }, data: data });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} product`;
-  }
+  async remove(id: number) {
+    const product = await this.product.findUnique({
+      where: { id: id, available: true },
+    });
 
-  update(id: number, updateProductDto: UpdateProductDto) {
-    return `This action updates a #${id} product`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} product`;
+    if (!product) {
+      throw new NotFoundException(`Product with id ${id} not found`);
+    }
+    return this.product.update({
+      where: { id },
+      data: { available: false },
+    });
   }
 }

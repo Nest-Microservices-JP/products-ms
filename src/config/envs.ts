@@ -16,7 +16,7 @@ const envsSchema = joi
 const { error, value } = envsSchema.validate(process.env);
 
 if (error) {
-  throw new Error('Erro aaal iniciar las variables de entonro');
+  throw new Error('Erro aaal iniciar las variables de entonro' + value);
 }
 
 const envVars: EnvVars = value;
